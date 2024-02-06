@@ -1,9 +1,6 @@
 package youtube_dl;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,6 +14,10 @@ public class YoutubeDL {
         this.outputName = outputName;
     }
 
+    public String getOutputPath() {
+        return "/Users/thibeau/Downloads/ytdl" + "/"+outputName;
+    }
+
     private YoutubeDownloadProgressInfo getInfoFromLine(String line) {
         if(line.startsWith("[download]")) {
             final String regex = "\\[download\\]\\s+(\\d+\\.\\d+)%.*ETA (\\d+:\\d+)";
@@ -28,30 +29,40 @@ public class YoutubeDL {
                 }
             }
         } else if(line.startsWith("[ffmpeg]")) {
-            return new YoutubeDownloadProgressInfo("100%", "00:00", "Converssion du format vers MP3");
+            return new YoutubeDownloadProgressInfo("100%", "00:00", "Converssion du format vers WAV");
         }
         return null;
     }
 
-    public void start(YoutubeDownloadEvent event) {
-        try {
-            String[] command = {"youtube-dl", "-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "-o",
-                "/Users/thibeau/Downloads/ytdl" + "/"+outputName+".mp3", url};
-            Process process = Runtime.getRuntime().exec(command);
-            event.onStart();
-            InputStream inputStream = process.getInputStream();
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                YoutubeDownloadProgressInfo info = getInfoFromLine(line);
-                if(info != null) {
-                    event.onProgress(info);
-                }
-
+    private void executeProcess(String[] command, YoutubeDownloadEvent event) throws IOException, InterruptedException {
+        System.out.println("New process started");
+        ProcessBuilder process = new ProcessBuilder(command);
+        Process processObject = process.start();
+        InputStream inputStream = processObject.getInputStream();
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+        process.redirectError(ProcessBuilder.Redirect.INHERIT);
+        process.redirectInput(ProcessBuilder.Redirect.INHERIT);
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+            YoutubeDownloadProgressInfo info = getInfoFromLine(line);
+            if(info != null) {
+                event.onProgress(info);
             }
-            process.waitFor();
+        }
+        processObject.waitFor();
+    }
+
+    public void start(YoutubeDownloadEvent event) {
+        event.onStart();
+        try {
+            String[] command = {"youtube-dl", "-f", "bestaudio", "--extract-audio", "-o",
+                    getOutputPath()+".opus", url};
+            executeProcess(command, event);
+
+            String[] command2 = {"ffmpeg", "-i", getOutputPath()+".opus", "-c:a", "pcm_f32le" ,getOutputPath()+".wav"};
+            executeProcess(command2, event);
+
             event.onFinish();
     } catch (Exception e) {
         e.printStackTrace();

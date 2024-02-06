@@ -7,9 +7,15 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    maven {
+        name = "Dcm4Che Repository"
+        url = "https://www.dcm4che.org/maven2/"
+    }
 }
 
 dependencies {
+    implementation 'net.jthink:jaudiotagger:2.2.5'
+    implementation 'xuggle:xuggle-xuggler:5.4'
 
 }
 
